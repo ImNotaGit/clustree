@@ -64,6 +64,8 @@
 #' @param return string specifying what to return, either "plot" (a `ggplot`
 #' object), "graph" (a `tbl_graph` object) or "layout" (a `ggraph` layout
 #' object)
+#' @param interactive logical indicating whether to make the nodes interactive with ggiraph
+#' @param plot logical, if interactive is TRUE, indicate whether to directly make the plot wit ggiraph::girafe; if FALSE, will return the plot object without calling ggiraph::girafe
 #' @param ... extra parameters passed to other methods
 #'
 #' @details
@@ -165,6 +167,8 @@ clustree.matrix <- function(x, prefix,
                             edge_arrow_ends  = c("last", "first", "both"),
                             show_axis        = FALSE,
                             return           = c("plot", "graph", "layout"),
+                            interactive      = FALSE,
+                            plot             = TRUE,
                             ...) {
 
     checkmate::assert_matrix(x, any.missing = FALSE, col.names = "unique",
@@ -309,19 +313,41 @@ clustree.matrix <- function(x, prefix,
                                graph_attr$node_alpha,
                                names(igraph::vertex_attr(graph)))
 
-    # Plot node text
-    if (scale_node_text && !is.numeric(node_size)) {
-        gg <- gg + geom_node_text(aes_(label = ~cluster,
-                                       size = as.name(graph_attr$node_size)),
-                                  colour = node_text_colour,
-                                  angle = node_text_angle
-                                  )
+    if (interactive) {
+      # Plot node text
+      if (scale_node_text && !is.numeric(node_size)) {
+          gg <- gg + geom_node_text(aes_(label = ~stringr::str_split(cluster, "_", simplify=TRUE)[,1],
+                                         size = as.name(graph_attr$node_size)),
+                                    colour = node_text_colour,
+                                    angle = node_text_angle
+                                    )
+      } else {
+          gg <- gg + geom_node_text(aes_(label = ~stringr::str_split(cluster, "_", simplify=TRUE)[,1]),
+                                    size = node_text_size,
+                                    colour = node_text_colour,
+                                    angle = node_text_angle
+                                    )
+      }
+      # Plot interactive nodes with ggiraph
+      gg <- gg + add_node_pointsi(graph_attr$node_colour, graph_attr$node_size,
+                                 graph_attr$node_alpha,
+                                 names(igraph::vertex_attr(graph)))
+
     } else {
-        gg <- gg + geom_node_text(aes_(label = ~cluster),
-                                  size = node_text_size,
-                                  colour = node_text_colour,
-                                  angle = node_text_angle
-                                  )
+      # Plot node text
+      if (scale_node_text && !is.numeric(node_size)) {
+          gg <- gg + geom_node_text(aes_(label = ~cluster,
+                                         size = as.name(graph_attr$node_size)),
+                                    colour = node_text_colour,
+                                    angle = node_text_angle
+                                    )
+      } else {
+          gg <- gg + geom_node_text(aes_(label = ~cluster),
+                                    size = node_text_size,
+                                    colour = node_text_colour,
+                                    angle = node_text_angle
+                                    )
+      }
     }
 
     if (!(is.null(node_label))) {
@@ -349,7 +375,8 @@ clustree.matrix <- function(x, prefix,
     }
 
     if (return == "plot") {
-        return(gg)
+        if (interactive && plot) return(ggiraph::girafe(ggobj = gg))
+        else return(gg)
     } else if (return == "graph") {
         return(graph)
     } else if (return == "layout") {
@@ -581,6 +608,32 @@ add_node_points <- function(node_colour, node_size, node_alpha, allowed) {
                                             alpha = node_alpha)
     )
 
+}
+
+
+#' Add interactive node points with ggiraph
+#'
+#' Add node points to a clustering tree plot with the specified aesthetics.
+#'
+#' @param node_colour either a value indicating a colour to use for all nodes or
+#' the name of a metadata column to colour nodes by
+#' @param node_size either a numeric value giving the size of all nodes or the
+#' name of a metadata column to use for node sizes
+#' @param node_alpha either a numeric value giving the alpha of all nodes or the
+#' name of a metadata column to use for node transparency
+#' @param allowed vector of allowed node attributes to use as aesthetics
+#'
+#' @importFrom ggiraph geom_point_interactive
+#' @importFrom ggplot2 aes_string
+add_node_pointsi <- function(node_colour, node_size, node_alpha, allowed) {
+
+    is_allowed <- c(node_colour, node_size, node_alpha) %in% allowed
+
+    if (is_allowed[2]) {
+      geom_point_interactive(aes_string(x="x", y="y", size=node_size, data_id="node", tooltip="cluster"), colour="white", alpha=0.01)
+    } else {
+      geom_point_interactive(aes_string(x="x", y="y", data_id="node", tooltip="cluster"), size=node_size, colour="white", alpha=0.01)
+    }
 }
 
 

@@ -38,7 +38,9 @@ Imports: checkmate,
     methods,
     rlang,
     tidygraph,
-    ggrepel
+    ggrepel,
+    ggiraph,
+    stringr
 Suggests: 
     testthat (>= 2.1.0),
     knitr,
